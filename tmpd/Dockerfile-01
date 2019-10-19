@@ -1,0 +1,37 @@
+FROM alpine:latest
+
+RUN apk --update --no-cache add bash \
+    && mkdir -p /home/work
+COPY /config /home/work
+
+RUN set -x && \
+    chown root:root /home/work/* && \
+    chmod 755 /home/work/* && \
+    ln -s /home/work/kcp-server /bin/kcp-server && \
+    ln -s /home/work/socks5 /bin/socks5
+
+# install rinetd
+ENV RINETD_VERSION 0.70
+ENV RINETD_URL https://github.com/samhocevar/rinetd/releases/download/v${RINETD_VERSION}/rinetd-${RINETD_VERSION}.tar.gz
+RUN set -xe \
+    && apk add --no-cache build-base curl tar \
+    && mkdir rinetd \
+    && cd rinetd \
+    && curl -sSL $RINETD_URL | tar xz --strip 1 \
+    && ./configure --prefix=/usr --sysconfdir=/etc/rinetd \
+    && make install \
+    && cd .. \
+    && rm -r rinetd \
+    && apk del build-base curl tar \
+    && rm -rf /etc/rinetd/rinetd.conf \
+    && mv /home/work/rinetd.conf /etc/rinetd
+#	CMD ["rinetd", "-f", "-c", "/etc/rinetd/rinetd.conf"]
+
+# install supervisor
+RUN apk --update add --no-cache supervisor \
+    && mkdir -p /etc/supervisord.d
+COPY /config/supervisord.conf /etc
+COPY /config/process.conf /etc/supervisord.d
+EXPOSE 80 12948 45678:45678/udp
+STOPSIGNAL SIGTERM
+CMD ["supervisord", "--nodaemon", "--configuration", "/etc/supervisord.conf"]

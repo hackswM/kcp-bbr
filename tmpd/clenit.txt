@@ -1,0 +1,12 @@
+{
+    "localaddr": ":1082",
+    "remoteaddr": "IP:PORT",
+    "key": "password",
+    "crypt": "aes",
+    "mode": "fast2",
+    "conn": 1,
+    "mtu": 1350,
+    "sndwnd": 2048,
+    "rcvwnd": 2048,
+    "nocomp": false
+}

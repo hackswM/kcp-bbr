@@ -1,0 +1,38 @@
+FROM gaoyifan/rinetd
+RUN rm -rf /etc/rinetd/rinetd.conf
+RUN apk add --no-cache supervisor \
+    && mkdir -p /etc/supervisord.d
+COPY /config/supervisord.conf /etc
+COPY /config/process.conf /etc/supervisord.d
+COPY /config/rinetd.conf  /etc/rinetd
+
+ENV TERM=linux \
+    DATA_DIR=/usr/local/kcp-server \
+    CONF_DIR="/usr/local/conf"
+
+RUN set -x && \
+    apk --update --no-cache add build-base tar wget curl bash && \
+    mkdir /tmp/libsodium && \
+    curl -Lk https://github.com/jedisct1/libsodium/releases/download/1.0.16/libsodium-1.0.16.tar.gz|tar xz -C /tmp/libsodium --strip-components=1 && \
+    cd /tmp/libsodium && \
+    ./configure && \
+    make -j $(awk '/processor/{i++}END{print i}' /proc/cpuinfo) && \
+    make install && \
+    [ ! -d ${CONF_DIR} ] && mkdir -p ${CONF_DIR} && \
+    [ ! -d ${DATA_DIR} ] && mkdir -p ${DATA_DIR} && cd ${DATA_DIR}
+	
+RUN wget https://raw.githubusercontent.com/clangcn/kcp-server/master/socks5_latest/socks5_linux_amd64 -O /usr/local/kcp-server/socks5
+COPY server_linux_amd64 /usr/local/kcp-server/kcp-server
+RUN set -x && \
+    chown root:root /usr/local/kcp-server/* && \
+    chmod 755 /usr/local/kcp-server/* && \
+    ln -s /usr/local/kcp-server/kcp-server /bin/kcp-server && \
+    ln -s /usr/local/kcp-server/socks5 /bin/socks5 && \
+    apk --no-cache del build-base && \
+    rm -rf /var/cache/apk/* ~/.cache /tmp/libsodium /usr/local/kcp-server/client_linux_amd64 /usr/local/kcp-server/${kcptun_latest_filename}
+
+WORKDIR ${DATA_DIR}
+VOLUME [${DATA_DIR}]
+ADD entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
